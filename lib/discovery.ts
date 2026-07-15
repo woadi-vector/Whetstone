@@ -6,7 +6,7 @@ const profileSchema = z.object({
   interests: z.array(z.string()).optional().default([]),
   obsessions: z.array(z.string()).optional().default([]),
   working_style: z.string().optional().default(""),
-}).default({});
+});
 
 const interviewingSchema = z.object({
   message: z.string().min(1),
