@@ -21,7 +21,7 @@ async function createValidatedResponse(systemPrompt: string, message: string) {
   const response = await openai.responses.create({
     model: "gpt-5.6",
     instructions: systemPrompt,
-    input: message,
+    input: `Return only a valid JSON object.\n\nUser message:\n${message}`,
     text: { format: { type: "json_object" } },
   });
 
