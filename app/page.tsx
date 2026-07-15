@@ -33,13 +33,16 @@ export default function SignInPage() {
     setIsSubmitting(true);
     setNotice("");
     setError("");
-    const { error } = await createClient().auth.verifyOtp({ email, token, type: "email" });
-    if (error) {
-      setError("That code is wrong or expired. Request a new code and try again.");
-      setIsSubmitting(false);
-      return;
+    const otpTypes = ["email", "magiclink", "signup"] as const;
+    for (const type of otpTypes) {
+      const { error } = await createClient().auth.verifyOtp({ email, token, type });
+      if (!error) {
+        router.push("/discovery");
+        return;
+      }
     }
-    router.push("/discovery");
+    setError("That code is wrong or expired. Request a new code and try again.");
+    setIsSubmitting(false);
   }
 
   return (
