@@ -33,7 +33,8 @@ export default function Home() {
         body: JSON.stringify({ message }),
       });
       const body: DiscoveryResponse | { error: string } = await response.json();
-      if (!response.ok || "error" in body) throw new Error(body.error || "Discovery failed.");
+      if ("error" in body) throw new Error(body.error);
+      if (!response.ok) throw new Error("Discovery failed.");
       setResult(body);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Discovery failed.");
