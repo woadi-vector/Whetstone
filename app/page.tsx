@@ -1,68 +1,65 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { DiscoveryResponse } from "@/lib/discovery";
 
-export default function Home() {
+export default function SignInPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
-  const [authNotice, setAuthNotice] = useState("");
-  const [message, setMessage] = useState("");
-  const [result, setResult] = useState<DiscoveryResponse | null>(null);
+  const [token, setToken] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    const authError = new URLSearchParams(window.location.search).get("auth_error");
-    if (authError) setAuthNotice(authError);
-  }, []);
-
-  async function sendMagicLink(event: FormEvent<HTMLFormElement>) {
+  async function requestCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const { error: authError } = await createClient().auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
-    });
-    setAuthNotice(authError ? authError.message : "Check your email for a sign-in link.");
+    setIsSubmitting(true);
+    setNotice("");
+    setError("");
+    const { error } = await createClient().auth.signInWithOtp({ email });
+    if (error) {
+      setError(error.message);
+    } else {
+      setCodeSent(true);
+      setNotice("Enter the 6-digit code from your email.");
+    }
+    setIsSubmitting(false);
   }
 
-  async function submitDiscovery(event: FormEvent<HTMLFormElement>) {
+  async function verifyCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIsLoading(true);
+    setIsSubmitting(true);
+    setNotice("");
     setError("");
-    setResult(null);
-    try {
-      const response = await fetch("/api/discovery", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-      const body: DiscoveryResponse | { error: string } = await response.json();
-      if ("error" in body) throw new Error(body.error);
-      if (!response.ok) throw new Error("Discovery failed.");
-      setResult(body);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Discovery failed.");
-    } finally {
-      setIsLoading(false);
+    const { error } = await createClient().auth.verifyOtp({ email, token, type: "email" });
+    if (error) {
+      setError("That code is wrong or expired. Request a new code and try again.");
+      setIsSubmitting(false);
+      return;
     }
+    router.push("/discovery");
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-10 p-6 sm:pt-16">
-      <header><p className="text-sm text-stone-500">Whetstone / Milestone 1</p><h1 className="mt-2 text-4xl font-semibold tracking-tight">Discovery test</h1></header>
-      <form onSubmit={sendMagicLink} className="rounded-lg border border-stone-200 bg-white p-4">
-        <label className="block text-sm font-medium" htmlFor="email">Email magic link</label>
-        <div className="mt-2 flex gap-2"><input id="email" className="min-w-0 flex-1 rounded border border-stone-300 px-3 py-2" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /><button className="rounded bg-stone-900 px-3 py-2 text-sm text-white">Send link</button></div>
-        {authNotice && <p role="status" className="mt-2 text-sm text-stone-600">{authNotice}</p>}
-      </form>
-      <form onSubmit={submitDiscovery} className="space-y-3">
-        <label className="block text-sm font-medium" htmlFor="message">Your answer</label>
-        <textarea id="message" className="min-h-32 w-full rounded border border-stone-300 p-3" required value={message} onChange={(e) => setMessage(e.target.value)} />
-        <button disabled={isLoading} className="rounded bg-amber-800 px-4 py-2 text-white disabled:opacity-60">{isLoading ? "Thinking…" : "Send"}</button>
-        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-      </form>
-      {result && <pre className="overflow-auto rounded-lg bg-stone-900 p-4 text-sm text-stone-100">{JSON.stringify(result, null, 2)}</pre>}
+    <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-8 p-6">
+      <header><p className="text-sm text-stone-500">Whetstone / Milestone 1</p><h1 className="mt-2 text-4xl font-semibold tracking-tight">Start your Discovery</h1></header>
+      {!codeSent ? (
+        <form onSubmit={requestCode} className="rounded-lg border border-stone-200 bg-white p-4">
+          <label className="block text-sm font-medium" htmlFor="email">Email</label>
+          <input id="email" className="mt-2 w-full rounded border border-stone-300 px-3 py-2" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} />
+          <button disabled={isSubmitting} className="mt-3 rounded bg-stone-900 px-3 py-2 text-sm text-white disabled:opacity-60">{isSubmitting ? "Sending…" : "Email me a code"}</button>
+        </form>
+      ) : (
+        <form onSubmit={verifyCode} className="rounded-lg border border-stone-200 bg-white p-4">
+          <label className="block text-sm font-medium" htmlFor="token">6-digit code</label>
+          <input id="token" className="mt-2 w-full rounded border border-stone-300 px-3 py-2" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required value={token} onChange={(event) => setToken(event.target.value.replace(/\D/g, ""))} />
+          <button disabled={isSubmitting} className="mt-3 rounded bg-stone-900 px-3 py-2 text-sm text-white disabled:opacity-60">{isSubmitting ? "Checking…" : "Verify code"}</button>
+        </form>
+      )}
+      {notice && <p role="status" className="text-sm text-stone-600">{notice}</p>}
+      {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
     </main>
   );
 }
