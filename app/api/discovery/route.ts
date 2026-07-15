@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import OpenAI from "openai";
-import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
-import { hasDevGate } from "@/lib/dev-gate";
 import { discoveryResponseSchema, parseModelJson } from "@/lib/discovery";
 
 export const runtime = "nodejs";
@@ -28,10 +28,10 @@ async function createValidatedResponse(systemPrompt: string, message: string) {
   return discoveryResponseSchema.parse(parseModelJson(response.output_text));
 }
 
-// TODO(auth): Replace this temporary gate with managed Supabase user authentication.
-export async function POST(request: NextRequest) {
-  if (!hasDevGate(request)) {
-    return NextResponse.json({ error: "Enter the development passcode first." }, { status: 401 });
+export async function POST(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
   }
 
   const parsedRequest = requestSchema.safeParse(await request.json().catch(() => null));
