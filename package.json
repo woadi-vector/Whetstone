@@ -13,22 +13,22 @@
   "dependencies": {
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
     "drizzle-orm": "latest",
     "next": "latest",
     "openai": "latest",
     "pg": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "typescript": "7.0.2",
     "zod": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
-    "@types/node": "26.1.1",
     "@types/pg": "latest",
-    "@types/react": "19.2.17",
-    "@types/react-dom": "19.2.3",
     "drizzle-kit": "latest",
-    "tailwindcss": "latest",
-    "typescript": "7.0.2"
+    "tailwindcss": "latest"
   }
 }
