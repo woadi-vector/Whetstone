@@ -1,9 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import DiscoveryTest from "@/components/discovery-test";
 
 export default async function DiscoveryPage() {
-  const { userId, redirectToSignIn } = await auth();
-  if (!userId) return redirectToSignIn();
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
 
   return <DiscoveryTest />;
 }
