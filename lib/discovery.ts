@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+export const moodCheckMessage =
+  "Hi — I'm so glad you're here. Before we start: how are you feeling right now, honestly? Wired, calm, stuck, restless, quiet — whatever it actually is, in your own words.";
+
+export const creativityOpenerMessage =
+  "Hi — I'm so glad you're here. Before we go anywhere, I'd love to get to know you a little. There's no wrong answer to any of this. What's something you can lose track of time doing — even if it feels small or silly?";
+
+export type DiscoveryChatMessage = {
+  role: "assistant" | "user";
+  content: string;
+};
+
 const profileSchema = z.object({
   themes: z.array(z.string()).optional().default([]),
   strengths: z.array(z.string()).optional().default([]),

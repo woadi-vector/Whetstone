@@ -4,24 +4,55 @@ import OpenAI from "openai";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { discoveryResponseSchema, parseModelJson } from "@/lib/discovery";
+import {
+  creativityOpenerMessage,
+  discoveryResponseSchema,
+  moodCheckMessage,
+  parseModelJson,
+} from "@/lib/discovery";
 
 export const runtime = "nodejs";
 
 const requestSchema = z.object({
-  message: z.string().trim().min(1).max(8_000),
+  messages: z.array(z.object({
+    role: z.enum(["assistant", "user"]),
+    content: z.string().trim().min(1).max(8_000),
+  })).min(4).max(16),
 });
 
 async function loadDiscoveryPrompt() {
   return readFile(path.join(process.cwd(), "prompts", "discovery.md"), "utf8");
 }
 
-async function createValidatedResponse(systemPrompt: string, message: string) {
+function isValidDiscoveryHistory(messages: z.infer<typeof requestSchema>["messages"]) {
+  if (
+    messages[0]?.role !== "assistant" ||
+    messages[0].content !== moodCheckMessage ||
+    messages[1]?.role !== "user" ||
+    messages[2]?.role !== "assistant" ||
+    messages[2].content !== creativityOpenerMessage ||
+    messages[3]?.role !== "user"
+  ) {
+    return false;
+  }
+
+  return messages.every((message, index) =>
+    message.role === (index % 2 === 0 ? "assistant" : "user"),
+  );
+}
+
+async function createValidatedResponse(
+  systemPrompt: string,
+  messages: z.infer<typeof requestSchema>["messages"],
+) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const conversation = messages
+    .map(({ role, content }) => `${role === "assistant" ? "Assistant" : "User"}: ${content}`)
+    .join("\n\n");
   const response = await openai.responses.create({
     model: "gpt-5.6",
     instructions: systemPrompt,
-    input: `Return only a valid JSON object.\n\nUser message:\n${message}`,
+    input: `Return only a valid JSON object.\n\nConversation history:\n${conversation}`,
     text: { format: { type: "json_object" } },
   });
 
@@ -36,14 +67,18 @@ export async function POST(request: Request) {
 
   const parsedRequest = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsedRequest.success) {
-    return NextResponse.json({ error: "Enter a message before sending." }, { status: 400 });
+    return NextResponse.json({ error: "Send a complete discovery response." }, { status: 400 });
+  }
+
+  if (!isValidDiscoveryHistory(parsedRequest.data.messages)) {
+    return NextResponse.json({ error: "Start with the discovery questions." }, { status: 400 });
   }
 
   try {
     const prompt = await loadDiscoveryPrompt();
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const data = await createValidatedResponse(prompt, parsedRequest.data.message);
+        const data = await createValidatedResponse(prompt, parsedRequest.data.messages);
         return NextResponse.json(data);
       } catch (error) {
         if (attempt === 1) throw error;
