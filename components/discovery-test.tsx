@@ -21,9 +21,11 @@ export default function DiscoveryTest() {
     setIsLoading(true);
     setError("");
     setResult(null);
+    const previousConversation = conversation;
     const nextConversation = [...conversation, { role: "user" as const, content: message }];
 
     setConversation(nextConversation);
+    setMessage("");
     try {
       const response = await fetch("/api/discovery", {
         method: "POST",
@@ -36,6 +38,7 @@ export default function DiscoveryTest() {
       setResult(body);
       setConversation([...nextConversation, { role: "assistant", content: body.message }]);
     } catch (caught) {
+      setConversation(previousConversation);
       setError(caught instanceof Error ? caught.message : "Discovery failed.");
     } finally {
       setIsLoading(false);
