@@ -7,6 +7,7 @@ import { z } from "zod";
 import { mirrors } from "@/db/schema";
 import { db } from "@/lib/db";
 import {
+  creativityOpenerMessage,
   discoveryResponseSchema,
   moodCheckMessage,
   parseModelJson,
@@ -25,6 +26,8 @@ async function loadDiscoveryPrompt() {
   return readFile(path.join(process.cwd(), "prompts", "discovery.md"), "utf8");
 }
 
+const moodPivotSystemNote = "The user just told you their current mood. Your entire message must be exactly two parts: first, ONE short sentence acknowledging what they said — warm, specific to their words, no advice, no sympathy performance, and absolutely NO question about the mood; second, this question verbatim: 'Before we go anywhere, I'd love to get to know you a little. There's no wrong answer to any of this. What's something you can lose track of time doing — even if it feels small or silly?' Return the standard interviewing JSON with both parts as one message.";
+
 function isValidDiscoveryHistory(messages: z.infer<typeof requestSchema>["messages"]) {
   if (
     messages[0]?.role !== "assistant" ||
@@ -39,19 +42,34 @@ function isValidDiscoveryHistory(messages: z.infer<typeof requestSchema>["messag
   );
 }
 
+function isValidMoodPivotResponse(data: z.infer<typeof discoveryResponseSchema>) {
+  if (data.phase !== "interviewing" || !data.message.endsWith(creativityOpenerMessage)) {
+    return false;
+  }
+
+  const acknowledgment = data.message.slice(0, -creativityOpenerMessage.length).trim();
+  return acknowledgment.length > 0 && acknowledgment.length <= 240 &&
+    acknowledgment.split(/[.!?]+/).filter(Boolean).length === 1;
+}
+
 async function createValidatedResponse(
   systemPrompt: string,
   messages: z.infer<typeof requestSchema>["messages"],
 ) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const isMoodPivot = messages.length === 2;
   const creativityAnswerCount = messages
-    .slice(1)
+    .slice(3)
     .filter((message) => message.role === "user").length;
   const completionNote = creativityAnswerCount >= 8
     ? "Respond with phase: reflecting now. Write the letter."
     : creativityAnswerCount >= 6
       ? "You have enough material. If a final short question is truly needed, ask exactly one more. Otherwise your next response must be phase: reflecting."
       : null;
+  const systemNotes = [
+    ...(isMoodPivot ? [moodPivotSystemNote] : []),
+    ...(completionNote ? [completionNote] : []),
+  ];
   const conversation = messages
     .map(({ role, content }) => `${role === "assistant" ? "Assistant" : "User"}: ${content}`)
     .join("\n\n");
@@ -59,7 +77,7 @@ async function createValidatedResponse(
     model: "gpt-5.6",
     instructions: systemPrompt,
     input: [
-      ...(completionNote ? [{ role: "system" as const, content: completionNote }] : []),
+      ...systemNotes.map((content) => ({ role: "system" as const, content })),
       {
         role: "user" as const,
         content: `Return only a valid JSON object.\n\nConversation history:\n${conversation}`,
@@ -69,6 +87,9 @@ async function createValidatedResponse(
   });
 
   const data = discoveryResponseSchema.parse(parseModelJson(response.output_text));
+  if (isMoodPivot && !isValidMoodPivotResponse(data)) {
+    throw new Error("Mood pivot did not include the required acknowledgment and creativity question.");
+  }
   if (creativityAnswerCount >= 8 && data.phase !== "reflecting") {
     throw new Error("Discovery must reflect after eight creativity answers.");
   }
@@ -93,7 +114,8 @@ export async function POST(request: Request) {
 
   try {
     const prompt = await loadDiscoveryPrompt();
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    const attempts = parsedRequest.data.messages.length === 2 ? 1 : 2;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
         const data = await createValidatedResponse(prompt, parsedRequest.data.messages);
         if (data.phase === "reflecting") {
@@ -115,7 +137,7 @@ export async function POST(request: Request) {
         }
         return NextResponse.json(data);
       } catch (error) {
-        if (attempt === 1) throw error;
+        if (attempt === attempts - 1) throw error;
       }
     }
   } catch (error) {
