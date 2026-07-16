@@ -1,5 +1,39 @@
 @import "tailwindcss";
 
+@theme {
+  --color-cream: #f8f3ea;
+  --color-paper: #fffdf8;
+  --color-ink: #2d2926;
+  --color-muted-ink: #766f68;
+  --color-clay: #bf5a3c;
+  --color-clay-dark: #93432c;
+  --color-line: #e5ddd1;
+  --font-display: var(--font-fraunces);
+  --font-serif: var(--font-instrument-serif);
+  --font-ui: var(--font-hanken-grotesk);
+}
+
 :root { color-scheme: light; }
 
-body { @apply min-h-screen bg-stone-50 text-stone-900; }
+* { border-color: var(--color-line); }
+
+body {
+  min-height: 100vh;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-hanken-grotesk), sans-serif;
+}
+
+button, a, input, textarea { -webkit-tap-highlight-color: transparent; }
+
+::selection { background: #f0c6b8; color: var(--color-ink); }
+
+@keyframes mirror-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mirror-rise { animation: mirror-rise 600ms ease-out both; }
+.mirror-rise-delay-1 { animation-delay: 100ms; }
+.mirror-rise-delay-2 { animation-delay: 180ms; }
+.mirror-rise-delay-3 { animation-delay: 260ms; }
