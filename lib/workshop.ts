@@ -36,23 +36,50 @@ export const workshopResponseSchema = z.discriminatedUnion("phase", [
 
 export type WorkshopMirror = z.infer<typeof workshopMirrorSchema>;
 export type WorkshopResponse = z.infer<typeof workshopResponseSchema>;
+export type WorkshopChatMessage = {
+  role: "assistant" | "user";
+  content: string;
+};
 
 async function loadWorkshopPrompt() {
   return readFile(path.join(process.cwd(), "prompts", "workshop.md"), "utf8");
 }
 
-export async function createWorkshopFirstResponse(
+export async function createWorkshopResponse(
   mirror: WorkshopMirror,
-  idea: string,
+  messages: WorkshopChatMessage[],
 ): Promise<WorkshopResponse> {
   const prompt = await loadWorkshopPrompt();
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const userAnswerCount = messages.filter((message) => message.role === "user").length;
+  const completionNote = userAnswerCount >= 4
+    ? "Respond with phase: closing now. Write the 2-3 sentence what-I-heard close."
+    : userAnswerCount >= 3
+      ? "You have enough material. If one final short question is truly needed, ask exactly one more. Otherwise your next response must be phase: closing."
+      : null;
+  const conversation = messages
+    .map(({ role, content }) => `${role === "assistant" ? "Assistant" : "User"}: ${content}`)
+    .join("\n\n");
   const response = await openai.responses.create({
     model: "gpt-5.6",
     instructions: prompt,
-    input: `Return only a valid JSON object.\n\nMirror:\n${JSON.stringify(mirror)}\n\nRaw idea:\n${idea}`,
+    input: [
+      ...(completionNote ? [{ role: "system" as const, content: completionNote }] : []),
+      {
+        role: "user" as const,
+        content: `Return only a valid JSON object.\n\nMirror:\n${JSON.stringify(mirror)}\n\nWorkshop conversation:\n${conversation}`,
+      },
+    ],
     text: { format: { type: "json_object" } },
   });
 
-  return workshopResponseSchema.parse(parseModelJson(response.output_text));
+  const data = workshopResponseSchema.parse(parseModelJson(response.output_text));
+  if (userAnswerCount === 1 && data.phase !== "challenging") {
+    throw new Error("Workshop must challenge on its first response.");
+  }
+  if (userAnswerCount >= 4 && data.phase !== "closing") {
+    throw new Error("Workshop must close after four user exchanges.");
+  }
+
+  return data;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import {
   moodCheckMessage,
   type DiscoveryChatMessage,
@@ -62,6 +63,7 @@ export default function DiscoveryTest() {
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       </form>
       {result && <pre className="overflow-auto rounded-lg bg-stone-900 p-4 text-sm text-stone-100">{JSON.stringify(result, null, 2)}</pre>}
+      {result?.phase === "reflecting" && <Link className="rounded bg-amber-800 px-4 py-2 text-center text-white" href="/mirror">See my Mirror</Link>}
     </main>
   );
 }

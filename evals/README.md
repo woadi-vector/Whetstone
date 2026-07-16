@@ -1,9 +1,9 @@
 # Workshop anti-sycophancy evals
 
-These six planted-flaw fixtures call the real Workshop prompt and `gpt-5.6`
-through `lib/workshop.ts`. There are no mocks. The same helper is intended for
-the Milestone 2 Workshop route, so this harness evaluates the production model
-path rather than a parallel implementation.
+These six planted-flaw fixtures call the same shared turn handler used by
+`/api/workshop`, which loads the real Workshop prompt and calls `gpt-5.6`.
+There are no mocks, so this harness evaluates the production model path rather
+than a parallel implementation.
 
 ## Run
 

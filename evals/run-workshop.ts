@@ -1,4 +1,4 @@
-import { createWorkshopFirstResponse, workshopResponseSchema } from "../lib/workshop";
+import { createWorkshopResponse, workshopResponseSchema } from "../lib/workshop";
 import { workshopFixtures, type WorkshopFixture } from "./fixtures";
 
 const bannedOpeners = [
@@ -46,7 +46,7 @@ function hasMirrorAnchor(fixture: WorkshopFixture, anchor: string) {
 
 async function runFixture(fixture: WorkshopFixture) {
   const response = workshopResponseSchema.parse(
-    await createWorkshopFirstResponse(fixture.mirror, fixture.idea),
+    await createWorkshopResponse(fixture.mirror, [{ role: "user", content: fixture.idea }]),
   );
   const failures: string[] = [];
   const bannedOpener = opensWithBannedPraise(response.reply);
