@@ -4,6 +4,8 @@ import OpenAI from "openai";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { mirrors } from "@/db/schema";
+import { db } from "@/lib/db";
 import {
   creativityOpenerMessage,
   discoveryResponseSchema,
@@ -98,6 +100,23 @@ export async function POST(request: Request) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const data = await createValidatedResponse(prompt, parsedRequest.data.messages);
+        if (data.phase === "reflecting") {
+          try {
+            await db.insert(mirrors).values({
+              userId,
+              moodRaw: parsedRequest.data.messages[1].content,
+              transcript: parsedRequest.data.messages,
+              letter: data.letter,
+              cards: data.profile,
+            });
+          } catch (error) {
+            console.error("Saving Mirror failed", error);
+            return NextResponse.json(
+              { error: "We couldn't save your Mirror. Please try again." },
+              { status: 503 },
+            );
+          }
+        }
         return NextResponse.json(data);
       } catch (error) {
         if (attempt === 1) throw error;
