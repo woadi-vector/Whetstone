@@ -46,17 +46,36 @@ async function createValidatedResponse(
   messages: z.infer<typeof requestSchema>["messages"],
 ) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const creativityAnswerCount = messages
+    .slice(3)
+    .filter((message) => message.role === "user").length;
+  const completionNote = creativityAnswerCount >= 8
+    ? "Respond with phase: reflecting now. Write the letter."
+    : creativityAnswerCount >= 6
+      ? "You have enough material. If a final short question is truly needed, ask exactly one more. Otherwise your next response must be phase: reflecting."
+      : null;
   const conversation = messages
     .map(({ role, content }) => `${role === "assistant" ? "Assistant" : "User"}: ${content}`)
     .join("\n\n");
   const response = await openai.responses.create({
     model: "gpt-5.6",
     instructions: systemPrompt,
-    input: `Return only a valid JSON object.\n\nConversation history:\n${conversation}`,
+    input: [
+      ...(completionNote ? [{ role: "system" as const, content: completionNote }] : []),
+      {
+        role: "user" as const,
+        content: `Return only a valid JSON object.\n\nConversation history:\n${conversation}`,
+      },
+    ],
     text: { format: { type: "json_object" } },
   });
 
-  return discoveryResponseSchema.parse(parseModelJson(response.output_text));
+  const data = discoveryResponseSchema.parse(parseModelJson(response.output_text));
+  if (creativityAnswerCount >= 8 && data.phase !== "reflecting") {
+    throw new Error("Discovery must reflect after eight creativity answers.");
+  }
+
+  return data;
 }
 
 export async function POST(request: Request) {
