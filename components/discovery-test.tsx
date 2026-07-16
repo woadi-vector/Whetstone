@@ -2,7 +2,6 @@
 
 import { FormEvent, useState } from "react";
 import {
-  creativityOpenerMessage,
   moodCheckMessage,
   type DiscoveryChatMessage,
   type DiscoveryResponse,
@@ -14,7 +13,6 @@ export default function DiscoveryTest() {
   const [conversation, setConversation] = useState<DiscoveryChatMessage[]>([
     { role: "assistant", content: moodCheckMessage },
   ]);
-  const [isWaitingForCreativityAnswer, setIsWaitingForCreativityAnswer] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,17 +22,6 @@ export default function DiscoveryTest() {
     setError("");
     setResult(null);
     const nextConversation = [...conversation, { role: "user" as const, content: message }];
-
-    if (!isWaitingForCreativityAnswer) {
-      setConversation([
-        ...nextConversation,
-        { role: "assistant", content: creativityOpenerMessage },
-      ]);
-      setIsWaitingForCreativityAnswer(true);
-      setMessage("");
-      setIsLoading(false);
-      return;
-    }
 
     setConversation(nextConversation);
     try {

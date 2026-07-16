@@ -7,7 +7,6 @@ import { z } from "zod";
 import { mirrors } from "@/db/schema";
 import { db } from "@/lib/db";
 import {
-  creativityOpenerMessage,
   discoveryResponseSchema,
   moodCheckMessage,
   parseModelJson,
@@ -19,7 +18,7 @@ const requestSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(["assistant", "user"]),
     content: z.string().trim().min(1).max(8_000),
-  })).min(4).max(16),
+  })).min(2).max(16),
 });
 
 async function loadDiscoveryPrompt() {
@@ -30,10 +29,7 @@ function isValidDiscoveryHistory(messages: z.infer<typeof requestSchema>["messag
   if (
     messages[0]?.role !== "assistant" ||
     messages[0].content !== moodCheckMessage ||
-    messages[1]?.role !== "user" ||
-    messages[2]?.role !== "assistant" ||
-    messages[2].content !== creativityOpenerMessage ||
-    messages[3]?.role !== "user"
+    messages[1]?.role !== "user"
   ) {
     return false;
   }
@@ -49,7 +45,7 @@ async function createValidatedResponse(
 ) {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const creativityAnswerCount = messages
-    .slice(3)
+    .slice(1)
     .filter((message) => message.role === "user").length;
   const completionNote = creativityAnswerCount >= 8
     ? "Respond with phase: reflecting now. Write the letter."
