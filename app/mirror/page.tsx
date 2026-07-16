@@ -1,49 +1,37 @@
 import { auth } from "@clerk/nextjs/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { z } from "zod";
+import MirrorView from "@/components/mirror-view";
 import { mirrors } from "@/db/schema";
 import { db } from "@/lib/db";
 import { workshopMirrorSchema } from "@/lib/workshop";
 
-const cardLabels = [
-  ["themes", "Themes"],
-  ["strengths", "Strengths"],
-  ["interests", "Interests"],
-  ["obsessions", "Obsessions"],
-] as const;
-
-export default async function MirrorPage() {
+export default async function MirrorPage({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
+  const { id } = await searchParams;
+  const requestedId = id ? z.string().uuid().safeParse(id) : null;
 
-  const [mirror] = await db
-    .select({ letter: mirrors.letter, cards: mirrors.cards })
-    .from(mirrors)
-    .where(eq(mirrors.userId, userId))
-    .orderBy(desc(mirrors.createdAt))
-    .limit(1);
+  try {
+    const [mirror] = await db
+      .select({ id: mirrors.id, moodRaw: mirrors.moodRaw, letter: mirrors.letter, cards: mirrors.cards, createdAt: mirrors.createdAt })
+      .from(mirrors)
+      .where(requestedId?.success ? and(eq(mirrors.userId, userId), eq(mirrors.id, requestedId.data)) : eq(mirrors.userId, userId))
+      .orderBy(desc(mirrors.createdAt))
+      .limit(1);
 
-  if (!mirror) {
-    return <main className="mx-auto max-w-xl p-6 sm:pt-16"><p>Complete Discovery to create your Mirror.</p></main>;
+    if (!mirror || (id && !requestedId?.success)) return <EmptyMirror />;
+    const parsed = workshopMirrorSchema.safeParse({ letter: mirror.letter, profile: mirror.cards });
+    if (!parsed.success) return <main className="mx-auto max-w-xl px-5 py-20 text-muted-ink">Your latest Mirror can&apos;t be displayed yet.</main>;
+    return <MirrorView mirror={{ id: mirror.id, moodRaw: mirror.moodRaw, letter: parsed.data.letter, profile: parsed.data.profile, createdAt: mirror.createdAt.toISOString() }} />;
+  } catch (error) {
+    console.error("Loading Mirror failed", error);
+    return <main className="mx-auto max-w-xl px-5 py-20 text-muted-ink">We couldn&apos;t load your Mirror. Please try again.</main>;
   }
+}
 
-  const parsedMirror = workshopMirrorSchema.safeParse({ letter: mirror.letter, profile: mirror.cards });
-  if (!parsedMirror.success) {
-    return <main className="mx-auto max-w-xl p-6 sm:pt-16"><p>Your latest Mirror can't be displayed yet.</p></main>;
-  }
-
-  return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col gap-8 p-6 sm:pt-16">
-      <header><p className="text-sm text-stone-500">Mirror</p><h1 className="mt-2 text-4xl font-semibold tracking-tight">This is what I'm hearing in you</h1></header>
-      <blockquote className="border-l-4 border-amber-800 pl-4 text-lg leading-8 text-stone-800">{parsedMirror.data.letter}</blockquote>
-      <section className="space-y-4">
-        {cardLabels.map(([key, label]) => (
-          <div key={key} className="rounded-lg border border-stone-200 p-4"><h2 className="font-medium">{label}</h2><p className="mt-2 text-sm text-stone-700">{parsedMirror.data.profile[key].join(" · ")}</p></div>
-        ))}
-        <div className="rounded-lg border border-stone-200 p-4"><h2 className="font-medium">Working style</h2><p className="mt-2 text-sm text-stone-700">{parsedMirror.data.profile.working_style}</p></div>
-      </section>
-      <section className="rounded-lg bg-amber-50 p-4"><p>Bring a rough idea or a decision you're wrestling with. This is a thinking partner that pushes back — not a coach, not a cheerleader.</p><Link className="mt-4 inline-block rounded bg-amber-800 px-4 py-2 text-white" href="/workshop">Try a Workshop</Link></section>
-    </main>
-  );
+function EmptyMirror() {
+  return <main className="mx-auto flex min-h-[calc(100vh-76px)] max-w-xl flex-col justify-center px-5"><p className="text-sm font-medium uppercase tracking-[0.16em] text-clay">Mirror</p><h1 className="mt-4 font-display text-5xl leading-none text-ink">Your Mirror will appear here.</h1><p className="mt-5 text-muted-ink">Start with Discovery to create it.</p><Link href="/discover" className="mt-8 w-fit rounded-full bg-clay px-6 py-3 text-sm font-semibold text-white">Discover</Link></main>;
 }
