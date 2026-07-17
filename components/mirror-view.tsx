@@ -21,6 +21,11 @@ function formattedDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(new Date(value));
 }
 
+function moodStamp(moodRaw: string) {
+  const firstClause = moodRaw.split(/[.!?]/, 1)[0]?.trim().slice(0, 40).trim() ?? "";
+  return firstClause ? `${firstClause[0].toLowerCase()}${firstClause.slice(1)}` : "this moment";
+}
+
 export default function MirrorView({ mirror }: MirrorViewProps) {
   const [profile, setProfile] = useState(mirror.profile);
   const [editing, setEditing] = useState<EditableKey | null>(null);
@@ -70,10 +75,10 @@ export default function MirrorView({ mirror }: MirrorViewProps) {
       </header>
 
       <section className="mirror-rise mirror-rise-delay-1 mt-10 rounded-2xl border border-line border-l-[5px] border-l-clay bg-paper p-7 shadow-[0_16px_45px_rgba(69,51,38,0.07)] sm:p-10">
-        <p className="mb-5 inline-flex rounded-full bg-cream px-3 py-1 text-xs text-muted-ink">Mirror captured while {mirror.moodRaw}, {formattedDate(mirror.createdAt)}.</p>
+        <p className="mb-5 inline-flex rounded-full bg-cream px-3 py-1 text-xs text-muted-ink">Mirror captured while {moodStamp(mirror.moodRaw)}, {formattedDate(mirror.createdAt)}.</p>
         <div className="relative">
           <span aria-hidden="true" className="absolute -left-2 -top-10 font-display text-8xl leading-none text-clay/25">&ldquo;</span>
-          <blockquote className="relative font-display text-2xl leading-9 text-ink sm:text-3xl sm:leading-[1.35]">{mirror.letter}</blockquote>
+          <blockquote className="relative space-y-5 font-display text-2xl leading-9 text-ink sm:text-3xl sm:leading-[1.35]">{mirror.letter.split(/\n\s*\n/).map((paragraph, index) => <p key={index}>{paragraph}</p>)}</blockquote>
         </div>
       </section>
 
