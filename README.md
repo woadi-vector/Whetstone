@@ -4,11 +4,9 @@
 are in a Mirror anchored to your own words — and then pushes back on your ideas
 without flattery.
 
-Live app: **https://whetstone-l42nful5m-whetstone2.vercel.app** *(replace with
-final URL if changed)*
+Live app: **https://whetstone-9b7j02m07-whetstone2.vercel.app/**
 Track: **Apps for Your Life** · OpenAI Build Week 2026
-Built with **Codex** and **GPT-5.6**. Codex `/feedback` Session ID: *(in
-submission form)*
+Built with **Codex** and **GPT-5.6**. Codex `/feedback` Session ID: *019f66eb-5ca1-79c2-8e03-d5f1896a13df*
 
 ---
 
